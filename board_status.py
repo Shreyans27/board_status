@@ -22,7 +22,7 @@ st.markdown('<p class="sub-header">Upload Master SKU file and RM Stock file to c
 
 @st.cache_data
 def load_master(file_bytes):
-    xl = pd.read_excel(file_bytes, sheet_name=None, header=None)
+    xl = pd.read_excel(BytesIO(file_bytes), sheet_name=None, header=None)
 
     sku_raw = xl.get("SKU Basic Details")
     if sku_raw is None:
@@ -87,7 +87,7 @@ def load_master(file_bytes):
 
 @st.cache_data
 def load_rm_stock(file_bytes):
-    xl = pd.read_excel(file_bytes, sheet_name="Ageing Report")
+    xl = pd.read_excel(BytesIO(file_bytes), sheet_name="Ageing Report")
     rm_df = xl[["Material", "Material Description", "Total Stock(Batch-wise)"]].copy()
     rm_df.columns = ["RM_ID", "RM_Desc", "Total_KG"]
     rm_df["RM_ID"] = rm_df["RM_ID"].apply(lambda x: str(x).strip() if pd.notna(x) else "")
@@ -158,7 +158,7 @@ def style_output_df(df):
     """Yellow for below qty rows."""
     def highlight_check(row):
         if row.get("Check") == "⚠ Below Qty":
-            return ["background-color: #fef9c3"] * len(row)
+            return ["background-color: #fef9c3; color: black"] * len(row)
         return [""] * len(row)
     return df.style.apply(highlight_check, axis=1)
 
@@ -173,9 +173,9 @@ def style_bottleneck_df(df):
         except Exception:
             return [""] * len(row)
         if bn < mts:
-            return ["background-color: #fee2e2"] * len(row)   # red
+            return ["background-color: #fee2e2; color: black"] * len(row)   # red
         if bn < mts2:
-            return ["background-color: #fef9c3"] * len(row)   # yellow
+            return ["background-color: #fef9c3; color: black"] * len(row)   # yellow
         return [""] * len(row)
     return df.style.apply(highlight, axis=1)
 
@@ -275,10 +275,10 @@ def to_single_factory_excel(fdf):
                 else:
                     cell.font = normal_font
 
-                # Fill priority:
-                # merged cols → use SKU-level fill
-                # non-merged  → yellow if row is below qty, else SKU-level fill
-                if col_key in MERGE_COLS:
+                # Fill priority: red (SKU bottleneck) always beats yellow (row below qty)
+                if sku_fill == red_fill:
+                    cell.fill = red_fill
+                elif col_key in MERGE_COLS:
                     if sku_fill:
                         cell.fill = sku_fill
                 else:
