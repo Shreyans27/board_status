@@ -275,17 +275,24 @@ def to_single_factory_excel(fdf):
                 else:
                     cell.font = normal_font
 
-                # Fill priority: red (SKU bottleneck) always beats yellow (row below qty)
-                if sku_fill == red_fill:
-                    cell.fill = red_fill
-                elif col_key in MERGE_COLS:
+                # Fill logic:
+                # Merged (SKU-level) cols → SKU bottleneck colour (red/yellow/none)
+                # Non-merged (RM-level) cols → each row's own status independently:
+                #   red  if cartons this RM < MTS Target
+                #   yellow if cartons this RM < MTS x2 (i.e. Check == Below Qty)
+                #   white otherwise
+                if col_key in MERGE_COLS:
                     if sku_fill:
                         cell.fill = sku_fill
                 else:
-                    if is_row_warn:
+                    try:
+                        row_cartons = float(row.get("Cartons_This_RM", 0) or 0)
+                    except Exception:
+                        row_cartons = 0
+                    if row_cartons < mts and mts > 0:
+                        cell.fill = red_fill
+                    elif is_row_warn:
                         cell.fill = warn_fill
-                    elif sku_fill:
-                        cell.fill = sku_fill
 
             excel_row += 1
 
